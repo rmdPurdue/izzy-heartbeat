@@ -59,7 +59,7 @@ payload, which can be up to 209 bytes long.
 each instance includes attributes for storing each chunk of a packet separately. This allows for easy 
 programmatic manipulation of the message data when necessary.
 
->[!NOTE]
+>[NOTE!]
 >Improperly structured Heartbeat packets will not be interpreted correctly.
 
 ### Threading
