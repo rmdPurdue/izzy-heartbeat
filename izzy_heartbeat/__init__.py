@@ -1,6 +1,6 @@
-from .heartbeat import HeartbeatMessage
-from .heartbeat import HeartbeatListenerThread
-from .heartbeat import HeartbeatServerThread
-from .heartbeat import HeartbeatResponderThread
-from .ports import Ports
-from message_type import MessageType
+name = "izzy-heartbeat"
+version = "0.1.4"
+
+from . import heartbeat
+from . import message_type
+from . import ports
