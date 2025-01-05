@@ -1,0 +1,28 @@
+[project]
+name = "izzy-heartbeat"
+version = "0.1.0"
+description = "Heartbeat classes for the IZZY Project."
+authors = [
+    {name = "Rich Dionne",email = "rdionne@purdue.edu"}
+]
+
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python"
+]
+
+[project.urls]
+repository = "https://github.com/rmdPurdue/izzy-heartbeat"
+
+[tool.hatch.build.targets.wheel]
+packages = ["izzy_heartbeat"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
