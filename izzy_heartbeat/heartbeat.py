@@ -253,7 +253,8 @@ class HeartbeatListenerThread(threading.Thread):
             self.hb_messages.put((len(data), self.message,
                                  address))
             # logger.debug(f"(%s) - Data recvd: {data}", format(__name__))
-            self.signal.emit()
+            if self.signal is not None:
+                self.signal.emit()
 
     def stop(self):
         """
