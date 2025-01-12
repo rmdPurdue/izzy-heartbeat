@@ -6,10 +6,10 @@ from izzy_heartbeat.message_type import MessageType
 from izzy_heartbeat.ports import Ports
 from izzy_devices import IZZYStatus
 from izzy_devices import MotherStatus
-# from logger import setup_logger
+from logger import setup_logger
 
 
-# logger = setup_logger(__name__, 'heartbeat-log')
+logger = setup_logger(__name__, 'heartbeat-log')
 
 
 class HeartbeatMessage:
@@ -70,7 +70,7 @@ class HeartbeatMessage:
         """
         self.data = data
         if self.data is not None:
-            self.msg_length += len(self.data)
+            self.msg_length = 46 + len(self.data)
 
     def get_message(self):
         """
@@ -195,7 +195,7 @@ class HeartbeatServerThread(threading.Thread):
         while self._running:
             self.send_socket.sendto(self.message.get_message(),
                                     ('255.255.255.255', Ports.UDP_TO_CLIENT_PORT.value))
-            # logger.info("(%s) - Heartbeat pulse sent.", format(__name__))
+            logger.info("(%s) (server) - Heartbeat pulse sent.", format(__name__))
             time.sleep(self.interval)
 
     def stop(self):
@@ -232,6 +232,9 @@ class HeartbeatListenerThread(threading.Thread):
 
         messages (Queue)
             A ``Queue`` for placing received messages.
+
+        signal (Signal)
+            A ``signalslot`` ``Signal`` for triggering other actions when a message is received.
         """
         super().__init__(daemon=True)
         self.rcv_socket = rcv_socket
@@ -249,10 +252,13 @@ class HeartbeatListenerThread(threading.Thread):
         """
         while self._running:
             data, address = self.rcv_socket.recvfrom(1024)
+            logger.info(f"(%s) (listener)- Heartbeat received", format(__name__))
             self.message.process_packet(data)
+            # logger.debug(f"(%s) (listener) - Data length: {len(data)}; from {address}: {self.message}.",
+                         # format(__name__))
             self.hb_messages.put((len(data), self.message,
                                  address))
-            # logger.debug(f"(%s) - Data recvd: {data}", format(__name__))
+            # logger.debug(f"(%s) (listener) - Queue length: {self.hb_messages.qsize()}.", format(__name__))
             if self.signal is not None:
                 self.signal.emit()
 
@@ -276,74 +282,46 @@ class HeartbeatResponderThread(threading.Thread):
 
     def run(self):
         while self._running:
-            data, address = self.hb_messages.get()
-            if self.received_message.preamble == 0x01:
+            data = bytearray()
+            length, self.received_message, address = self.hb_messages.get()
+            # logger.debug(f"(%s) (responder) - Preamble: {self.received_message.preamble}.", format(__name__))
+            if self.received_message.preamble == int(0x10):
                 if list(self.received_message.msg_id) == [0x69, 0x7A, 0x7A, 0x79, 0x6D, 0x65,
                                                           0x73, 0x73, 0x61, 0x67, 0x65]:
                     if self.received_message.message_type == MessageType.HELLO.value:
-                        # logger.info("Received a heartbeat pulse.")
-                        if (self.mother.my_id is None or self.mother.my_id !=
+                        # logger.debug(f"(%s) (responder) - Message is a heartbeat pulse.", format(__name__))
+                        if (self.mother.uuid is None or self.mother.uuid !=
                                 self.received_message.sender_id):
-                            self.mother.my_id = self.received_message.sender_id
+                            self.mother.uuid = self.received_message.sender_id
                             self.mother.ip_address = address[0]
                             self.mother.status = MotherStatus.CONNECTED.value
-                            self.mother.set_last_contact()
-                            # logger.info("First pulse received. Initializing Mother.")
-                        reply = HeartbeatMessage()
-                        reply.sender_id = self.izzy.uuid.bytes
-                        reply.receiver_id = self.mother.my_id.bytes
-                        delimiter = ",".encode()
-                        data = self.izzy.build_status_message()
-                        reply.message_type = MessageType.HERE.value
+                            # logger.debug("(%s) (responder) - First pulse received. Initializing Mother.",
+                            # format(__name__))
+                        self.reply_message.sender_id = self.izzy.uuid
+                        self.reply_message.receiver_id = self.mother.uuid
+                        data.extend(self.izzy.build_base_response())
+                        # logger.debug(f"(%s) (responder) - base payload: {data}", format(__name__))
+                        self.reply_message.message_type = MessageType.HERE.value
                         match self.izzy.status:
                             case IZZYStatus.AVAILABLE.value:
                                 pass
                             case IZZYStatus.MOVING.value:
                                 pass
                             case IZZYStatus.FOLLOWING.value:
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.line_follower.pid.kp))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.line_follower.pid.ki))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.line_follower.pid.kd))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.line_follower.pid.error))
-                                data += delimiter
-                                data += bytearray(
-                                    struct.pack("f",
-                                                self.izzy.line_follower.pid.get_error_angle()))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.left_line_sensor.min_reading))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.left_line_sensor.max_reading))
-                                data += delimiter
-                                data += bytearray(
-                                    struct.pack("f", self.izzy.left_line_sensor.reading))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.right_line_sensor.min_reading))
-                                data += delimiter
-                                data += bytearray(struct.pack("f",
-                                                              self.izzy.right_line_sensor.min_reading))
-                                data += delimiter
-                                data += bytearray(
-                                    struct.pack("f", self.izzy.right_line_sensor.reading))
+                                data = self.izzy.build_following_response()
                             case IZZYStatus.ESTOP.value:
                                 pass
                             case _:
                                 pass
                         self.reply_message.set_data(data)
+                        # logger.debug(f"(%s) (responder) - follower payload: {data}", format(__name__))
+                        # logger.debug(f"(%s) (responder) - message length: {self.reply_message.msg_length}",
+                        #             format(__name__))
                         time.sleep(0.1)
                         self.send_socket.sendto(self.reply_message.get_message(),
                                                 (self.mother.ip_address, Ports.UDP_FROM_CLIENT_PORT.value))
-                        self.send_socket.close()
+                        # logger.debug(f"(%s) (responder) - Reply sent: {self.reply_message.get_message()}",
+                        #             format(__name__))
                     else:
                         pass
                 else:
