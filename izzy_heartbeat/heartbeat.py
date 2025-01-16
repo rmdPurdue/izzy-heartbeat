@@ -1,6 +1,7 @@
 import struct
 import threading
 import time
+from datetime import datetime
 from uuid import UUID
 from izzy_heartbeat.message_type import MessageType
 from izzy_heartbeat.ports import Ports
@@ -299,6 +300,7 @@ class HeartbeatResponderThread(threading.Thread):
                             # format(__name__))
                         self.reply_message.sender_id = self.izzy.uuid
                         self.reply_message.receiver_id = self.mother.uuid
+                        self.izzy.last_contact = datetime.now()
                         data.extend(self.izzy.build_base_response())
                         # logger.debug(f"(%s) (responder) - base payload: {data}", format(__name__))
                         self.reply_message.message_type = MessageType.HERE.value

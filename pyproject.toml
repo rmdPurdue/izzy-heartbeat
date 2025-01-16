@@ -1,6 +1,6 @@
 [project]
 name = "izzy-heartbeat"
-version = "0.2.1"
+version = "0.2.2"
 description = "Heartbeat classes for the IZZY Project."
 authors = [
     {name = "Rich Dionne",email = "rdionne@purdue.edu"}
