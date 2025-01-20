@@ -205,6 +205,12 @@ class HeartbeatServerThread(threading.Thread):
         """
         self._running = False
 
+    def reset(self):
+        """
+        Sets the `_running` flag to True.
+        """
+        self._running = True
+
 
 class HeartbeatListenerThread(threading.Thread):
     """
